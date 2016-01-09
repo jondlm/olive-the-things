@@ -1,0 +1,9 @@
+{
+  "firebase": "olive-the-things",
+  "public": "public",
+  "ignore": [
+    "firebase.json",
+    "**/.*",
+    "**/node_modules/**"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "ecmaFeatures": {
+    "modules": true,
+  },
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "rules": {
+    "quotes": [2, "single"],
+    "comma-dangle": [0, "always-multiline"],
+    "no-trailing-spaces": 2,
+    "no-undef": 2
+  }
+}
