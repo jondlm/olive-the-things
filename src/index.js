@@ -170,6 +170,25 @@ function main(sources) {
       };
     });
 
+  const postAntibiotics$ = sources.DOM.select('.antibiotics').events('click')
+    .withLatestFrom(
+      timeshift$,
+      (nope, timeshift) => { return timeshift; }
+    )
+    .map((timeshift) => {
+      return {
+        url: EVENTS_URL,
+        method: 'POST',
+        eager: true,
+        send: {
+          time: moment().add(timeshift, 'minutes').toISOString(),
+          type: 'medication',
+          name: 'antibiotics',
+          who: 'andrea'
+        }
+      };
+    });
+
   const eventsByType$ = sources.HTTP
     .filter(res$ => res$.request.url.indexOf(EVENTS_URL) === 0 && res$.request.method === 'GET')
     .mergeAll()
@@ -212,6 +231,10 @@ function main(sources) {
                 td(lastMedication(eventsByType.medication, 'ibuprofen'))
               ]),
               tr([
+                th('Antibiotics'),
+                td(lastMedication(eventsByType.medication, 'antibiotics'))
+              ]),
+              tr([
                 th('Diaper'),
                 td(lastEvent(eventsByType.diaper))
               ])
@@ -230,6 +253,9 @@ function main(sources) {
             ]),
             div([
               button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
+            ]),
+            div([
+              button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
             ]),
             div([
               label([
@@ -254,6 +280,7 @@ function main(sources) {
       postFeed$,
       postIbuprofen$,
       postTylenol$,
+      postAntibiotics$,
       postDiaper$
     )
   };
