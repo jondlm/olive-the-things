@@ -63,7 +63,7 @@ function nextFeeding(events) {
     .thru((event) => {
       if (event && event.time) {
         var t = moment(event.time);
-        return `next feeding between ${t.add(2, 'hours').format('HH:mm')} and ${t.add(2, 'hours').format('HH:mm')}`;
+        return `don't go past ${t.add(4, 'hours').format('HH:mm')}`;
       } else {
         return 'n/a';
       }
@@ -234,7 +234,10 @@ function main(sources) {
             table('.highlights .pure-table .pure-table-horizontal', [
               tr([
                 th('Feeding'),
-                td(lastEvent(eventsByType.feeding)),
+                td([
+                  div(lastEvent(eventsByType.feeding)),
+                  small(nextFeeding(eventsByType.feeding))
+                ])
               ]),
               tr([
                 th('Tylenol'),
