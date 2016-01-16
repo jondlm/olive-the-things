@@ -35,7 +35,20 @@ function lastEvent(events) {
     .thru((event) => {
       if (event && event.time) {
         var t = moment(event.time);
-        return `${t.fromNow()} at ${t.format('HH:mm')}`;
+        var totalMinutes = moment().diff(t, 'minutes') || 1;
+
+        // don't need to be precise past 5 hours
+        if (totalMinutes > 300) {
+          return `${t.fromNow()} at ${t.format('HH:mm')}`;
+        }
+
+        var minutes = totalMinutes % 60;
+        var hours = Math.floor((totalMinutes) / 60);
+
+        var minutesMessage = minutes ? `${minutes} min` : '';
+        var hoursMessage = hours ? `${hours} hr` : '';
+
+        return `${hoursMessage} ${minutesMessage} ago at ${t.format('HH:mm')}`;
       } else {
         return 'none';
       }
@@ -50,7 +63,7 @@ function nextFeeding(events) {
     .thru((event) => {
       if (event && event.time) {
         var t = moment(event.time);
-        return `next feeding between ${t.add(2, 'hours').format('HH:mm')} and ${t.add(1, 'hours').format('HH:mm')}`;
+        return `next feeding between ${t.add(2, 'hours').format('HH:mm')} and ${t.add(2, 'hours').format('HH:mm')}`;
       } else {
         return 'n/a';
       }
@@ -81,7 +94,11 @@ function main(sources) {
     .map(() => {
       return {
         url: EVENTS_URL,
-        method: 'GET'
+        method: 'GET',
+        query: {
+          orderBy: '"time"',
+          limitTo: 20 // Assuming 20 events is enough...
+        }
       };
     });
 
@@ -217,10 +234,7 @@ function main(sources) {
             table('.highlights .pure-table .pure-table-horizontal', [
               tr([
                 th('Feeding'),
-                td([
-                  div(lastEvent(eventsByType.feeding)),
-                  small(nextFeeding(eventsByType.feeding))
-                ]),
+                td(lastEvent(eventsByType.feeding)),
               ]),
               tr([
                 th('Tylenol'),
@@ -239,7 +253,7 @@ function main(sources) {
                 td(lastEvent(eventsByType.diaper))
               ])
             ]),
-          ] : null,
+          ] : div('Loading...'),
           div('.center', [
             span(`${timeshift} min`),
             input('.timeshift', {attributes: {type: 'range', step: 5, min: -20, max: 20}}),
