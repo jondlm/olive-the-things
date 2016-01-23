@@ -86,9 +86,9 @@ function main(sources) {
     .startWith(0);
 
   const eventRequest$ = Rx.Observable.merge(
-      Rx.Observable.interval(60000),
+      Rx.Observable.interval(1000).filter(() => { return moment().second() === 1 }), // only refresh on minute
       sources.DOM.select('.refresh').events('click'),
-      sources.HTTP.filter(res$ => res$.request.method !== 'GET') // refresh for every post
+      sources.HTTP.filter(res$ => res$.request.method !== 'GET').mergeAll() // refresh for every post
     )
     .startWith(null)
     .map(() => {
@@ -118,7 +118,6 @@ function main(sources) {
       return {
         url: EVENTS_URL,
         method: 'POST',
-        eager: true,
         send: {
           type: 'feeding',
           time: moment().add(timeshift, 'minutes').toISOString(),
@@ -138,7 +137,6 @@ function main(sources) {
       return {
         url: EVENTS_URL,
         method: 'POST',
-        eager: true,
         send: {
           time: moment().add(timeshift, 'minutes').toISOString(),
           type: 'diaper',
@@ -158,7 +156,6 @@ function main(sources) {
       return {
         url: EVENTS_URL,
         method: 'POST',
-        eager: true,
         send: {
           time: moment().add(timeshift, 'minutes').toISOString(),
           type: 'medication',
@@ -177,7 +174,6 @@ function main(sources) {
       return {
         url: EVENTS_URL,
         method: 'POST',
-        eager: true,
         send: {
           time: moment().add(timeshift, 'minutes').toISOString(),
           type: 'medication',
@@ -196,7 +192,6 @@ function main(sources) {
       return {
         url: EVENTS_URL,
         method: 'POST',
-        eager: true,
         send: {
           time: moment().add(timeshift, 'minutes').toISOString(),
           type: 'medication',
@@ -207,7 +202,7 @@ function main(sources) {
     });
 
   const eventsByType$ = sources.HTTP
-    .filter(res$ => res$.request.url.indexOf(EVENTS_URL) === 0 && res$.request.method === 'GET')
+    .filter(res$ => res$.request.method === 'GET')
     .mergeAll()
     .map((res) => {
       return _.chain(res.body)
@@ -231,31 +226,31 @@ function main(sources) {
               span(`Refreshed at ${moment().format('HH:mm')}`),
               button('.refresh .pure-button', '↻')
             ]),
-            table('.highlights .pure-table .pure-table-horizontal', [
-              tr([
-                th('Feeding'),
-                td([
-                  div(lastEvent(eventsByType.feeding)),
-                  small(nextFeeding(eventsByType.feeding))
-                ])
-              ]),
-              tr([
-                th('Tylenol'),
-                td(lastMedication(eventsByType.medication, 'tylenol'))
-              ]),
-              tr([
-                th('Ibuprofen'),
-                td(lastMedication(eventsByType.medication, 'ibuprofen'))
-              ]),
-              tr([
-                th('Antibiotics'),
-                td(lastMedication(eventsByType.medication, 'antibiotics'))
-              ]),
-              tr([
-                th('Diaper'),
-                td(lastEvent(eventsByType.diaper))
-              ])
-            ]),
+            h2(lastEvent(eventsByType.feeding)),
+            // table('.highlights .pure-table .pure-table-horizontal', [
+            //   tr([
+            //     th('Feeding'),
+            //     td([
+            //       div(lastEvent(eventsByType.feeding))
+            //     ])
+            //   ]),
+            //   tr([
+            //     th('Tylenol'),
+            //     td(lastMedication(eventsByType.medication, 'tylenol'))
+            //   ]),
+            //   tr([
+            //     th('Ibuprofen'),
+            //     td(lastMedication(eventsByType.medication, 'ibuprofen'))
+            //   ]),
+            //   tr([
+            //     th('Antibiotics'),
+            //     td(lastMedication(eventsByType.medication, 'antibiotics'))
+            //   ]),
+            //   tr([
+            //     th('Diaper'),
+            //     td(lastEvent(eventsByType.diaper))
+            //   ])
+            // ]),
           ] : div('Loading...'),
           div('.center', [
             span(`${timeshift} min`),
@@ -265,26 +260,26 @@ function main(sources) {
             div([
               button('.feed .pure-button .pure-button-primary', 'Feed'),
             ]),
-            div([
-              button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
-            ]),
-            div([
-              button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
-            ]),
-            div([
-              button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
-            ]),
-            div([
-              label([
-                input('.poop', {attributes: {type: 'checkbox'}}),
-                'poop',
-              ]),
-              label([
-                input('.pee', {attributes: {type: 'checkbox'}}),
-                'pee',
-              ]),
-              button('.diaper .pure-button .pure-button-primary', 'Diaper'),
-            ]),
+            // div([
+            //   button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
+            // ]),
+            // div([
+            //   button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
+            // ]),
+            // div([
+            //   button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
+            // ]),
+            // div([
+            //   label([
+            //     input('.poop', {attributes: {type: 'checkbox'}}),
+            //     'poop',
+            //   ]),
+            //   label([
+            //     input('.pee', {attributes: {type: 'checkbox'}}),
+            //     'pee',
+            //   ]),
+            //   button('.diaper .pure-button .pure-button-primary', 'Diaper'),
+            // ]),
           ]),
         ])
       );
