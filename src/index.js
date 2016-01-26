@@ -226,31 +226,31 @@ function main(sources) {
               span(`Refreshed at ${moment().format('HH:mm')}`),
               button('.refresh .pure-button', '↻')
             ]),
-            h2(lastEvent(eventsByType.feeding)),
-            // table('.highlights .pure-table .pure-table-horizontal', [
-            //   tr([
-            //     th('Feeding'),
-            //     td([
-            //       div(lastEvent(eventsByType.feeding))
-            //     ])
-            //   ]),
-            //   tr([
-            //     th('Tylenol'),
-            //     td(lastMedication(eventsByType.medication, 'tylenol'))
-            //   ]),
-            //   tr([
-            //     th('Ibuprofen'),
-            //     td(lastMedication(eventsByType.medication, 'ibuprofen'))
-            //   ]),
-            //   tr([
-            //     th('Antibiotics'),
-            //     td(lastMedication(eventsByType.medication, 'antibiotics'))
-            //   ]),
-            //   tr([
-            //     th('Diaper'),
-            //     td(lastEvent(eventsByType.diaper))
-            //   ])
-            // ]),
+            // h2(lastEvent(eventsByType.feeding)),
+            table('.highlights .pure-table .pure-table-horizontal', [
+              tr([
+                th('Feeding'),
+                td([
+                  div(lastEvent(eventsByType.feeding))
+                ])
+              ]),
+              tr([
+                th('Tylenol'),
+                td(lastMedication(eventsByType.medication, 'tylenol'))
+              ]),
+              tr([
+                th('Ibuprofen'),
+                td(lastMedication(eventsByType.medication, 'ibuprofen'))
+              ]),
+              // tr([
+              //   th('Antibiotics'),
+              //   td(lastMedication(eventsByType.medication, 'antibiotics'))
+              // ]),
+              // tr([
+              //   th('Diaper'),
+              //   td(lastEvent(eventsByType.diaper))
+              // ])
+            ]),
           ] : div('Loading...'),
           div('.center', [
             span(`${timeshift} min`),
@@ -263,12 +263,12 @@ function main(sources) {
             // div([
             //   button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
             // ]),
-            // div([
-            //   button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
-            // ]),
-            // div([
-            //   button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
-            // ]),
+            div([
+              button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
+            ]),
+            div([
+              button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
+            ]),
             // div([
             //   label([
             //     input('.poop', {attributes: {type: 'checkbox'}}),
