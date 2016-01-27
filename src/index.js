@@ -260,15 +260,15 @@ function main(sources) {
             div([
               button('.feed .pure-button .pure-button-primary', 'Feed'),
             ]),
-            // div([
-            //   button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
-            // ]),
+            div([
+              button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
+            ]),
             div([
               button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
             ]),
-            div([
-              button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
-            ]),
+            // div([
+            //   button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
+            // ]),
             // div([
             //   label([
             //     input('.poop', {attributes: {type: 'checkbox'}}),
