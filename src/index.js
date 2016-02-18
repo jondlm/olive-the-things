@@ -37,8 +37,8 @@ function lastEvent(events) {
         var t = moment(event.time);
         var totalMinutes = moment().diff(t, 'minutes') || 1;
 
-        // don't need to be precise past 5 hours
-        if (totalMinutes > 300) {
+        // don't need to be precise past 10 hours
+        if (totalMinutes > 600) {
           return `${t.fromNow()} at ${t.format('HH:mm')}`;
         }
 
