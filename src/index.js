@@ -254,7 +254,7 @@ function main(sources) {
           ] : div('Loading...'),
           div('.center', [
             span(`shift mins: `),
-            input('.timeshift', {attributes: {type: 'numeric', pattern: '\d*'}}),
+            input('.timeshift', {attributes: {type: 'number', pattern: '\\d*'}}),
           ]),
           div('.buttons .right', [
             div([
