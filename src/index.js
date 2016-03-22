@@ -81,8 +81,8 @@ function lastMedication(medicationEvents, medicationName) {
 
 function main(sources) {
 
-  const timeshift$ = sources.DOM.select('.timeshift').events('change')
-    .map((ev) => { return parseInt(ev.target.value, 10) })
+  const timeshift$ = sources.DOM.select('.timeshift').events('input')
+    .map((ev) => { return parseInt(ev.target.value, 10) * -1 })
     .startWith(0);
 
   const eventRequest$ = Rx.Observable.merge(
@@ -253,8 +253,8 @@ function main(sources) {
             ]),
           ] : div('Loading...'),
           div('.center', [
-            span(`${timeshift} min`),
-            input('.timeshift', {attributes: {type: 'range', step: 5, min: -20, max: 20}}),
+            span(`shift mins: `),
+            input('.timeshift', {attributes: {type: 'numeric', pattern: '\d*'}}),
           ]),
           div('.buttons .right', [
             div([
