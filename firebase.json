@@ -1,5 +1,5 @@
 {
-  "firebase": "olive-the-things",
+  "firebase": "firebase-olive-the-things",
   "public": "public",
   "ignore": [
     "firebase.json",

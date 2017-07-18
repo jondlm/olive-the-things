@@ -97,7 +97,7 @@ function main(sources) {
         method: 'GET',
         query: {
           orderBy: '"time"',
-          limitTo: 20 // Assuming 20 events is enough...
+          startAt: '"2017-07-13T00:00:00.000Z"',
         }
       };
     });
@@ -126,76 +126,26 @@ function main(sources) {
       }
     });
 
-  const postDiaper$ = sources.DOM.select('.diaper').events('click')
-    .withLatestFrom(
-      poopCheck$,
-      peeCheck$,
-      timeshift$,
-      (nope, poop, pee, timeshift) => { return { poop, pee, timeshift }; }
+  const postMedication$ = Rx.Observable.merge(
+      sources.DOM.select('.ibuprofen').events('click').map(() => 'ibuprofen'),
+      sources.DOM.select('.tylenol').events('click').map(() => 'tylenol'),
+      sources.DOM.select('.iron').events('click').map(() => 'iron'),
+      sources.DOM.select('.prenatal').events('click').map(() => 'prenatal'),
+      sources.DOM.select('.vitamind').events('click').map(() => 'vitamind'),
+      sources.DOM.select('.colace').events('click').map(() => 'colace')
     )
-    .map(({ poop, pee, timeshift }) => {
-      return {
-        url: EVENTS_URL,
-        method: 'POST',
-        send: {
-          time: moment().add(timeshift, 'minutes').toISOString(),
-          type: 'diaper',
-          who: 'olive',
-          poop,
-          pee
-        }
-      };
-    })
-
-  const postTylenol$ = sources.DOM.select('.tylenol').events('click')
     .withLatestFrom(
       timeshift$,
-      (nope, timeshift) => { return timeshift; }
+      (name, timeshift) => { return {name, timeshift}; }
     )
-    .map((timeshift) => {
+    .map(({name, timeshift}) => {
       return {
         url: EVENTS_URL,
         method: 'POST',
         send: {
           time: moment().add(timeshift, 'minutes').toISOString(),
           type: 'medication',
-          name: 'tylenol',
-          who: 'andrea'
-        }
-      };
-    });
-
-  const postIbuprofen$ = sources.DOM.select('.ibuprofen').events('click')
-    .withLatestFrom(
-      timeshift$,
-      (nope, timeshift) => { return timeshift; }
-    )
-    .map((timeshift) => {
-      return {
-        url: EVENTS_URL,
-        method: 'POST',
-        send: {
-          time: moment().add(timeshift, 'minutes').toISOString(),
-          type: 'medication',
-          name: 'ibuprofen',
-          who: 'andrea'
-        }
-      };
-    });
-
-  const postAntibiotics$ = sources.DOM.select('.antibiotics').events('click')
-    .withLatestFrom(
-      timeshift$,
-      (nope, timeshift) => { return timeshift; }
-    )
-    .map((timeshift) => {
-      return {
-        url: EVENTS_URL,
-        method: 'POST',
-        send: {
-          time: moment().add(timeshift, 'minutes').toISOString(),
-          type: 'medication',
-          name: 'antibiotics',
+          name: name,
           who: 'andrea'
         }
       };
@@ -242,14 +192,22 @@ function main(sources) {
                 th('Ibuprofen'),
                 td(lastMedication(eventsByType.medication, 'ibuprofen'))
               ]),
-              // tr([
-              //   th('Antibiotics'),
-              //   td(lastMedication(eventsByType.medication, 'antibiotics'))
-              // ]),
-              // tr([
-              //   th('Diaper'),
-              //   td(lastEvent(eventsByType.diaper))
-              // ])
+              tr([
+                th('Iron'),
+                td(lastMedication(eventsByType.medication, 'iron'))
+              ]),
+              tr([
+                th('Prenatal'),
+                td(lastMedication(eventsByType.medication, 'prenatal'))
+              ]),
+              tr([
+                th('Vitamin D'),
+                td(lastMedication(eventsByType.medication, 'vitamind'))
+              ]),
+              tr([
+                th('Colace'),
+                td(lastMedication(eventsByType.medication, 'colace'))
+              ]),
             ]),
           ] : div('Loading...'),
           div('.center', [
@@ -266,9 +224,18 @@ function main(sources) {
             div([
               button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
             ]),
-            // div([
-            //   button('.antibiotics .pure-button .pure-button-primary', 'Antibiotics'),
-            // ]),
+            div([
+              button('.iron .pure-button .pure-button-primary', 'Iron'),
+            ]),
+            div([
+              button('.prenatal .pure-button .pure-button-primary', 'Prenatal'),
+            ]),
+            div([
+              button('.vitamind .pure-button .pure-button-primary', 'Vitamin D'),
+            ]),
+            div([
+              button('.colace .pure-button .pure-button-primary', 'Colace'),
+            ]),
             // div([
             //   label([
             //     input('.poop', {attributes: {type: 'checkbox'}}),
@@ -278,7 +245,6 @@ function main(sources) {
             //     input('.pee', {attributes: {type: 'checkbox'}}),
             //     'pee',
             //   ]),
-            //   button('.diaper .pure-button .pure-button-primary', 'Diaper'),
             // ]),
           ]),
         ])
@@ -290,10 +256,7 @@ function main(sources) {
     HTTP: Rx.Observable.merge(
       eventRequest$,
       postFeed$,
-      postIbuprofen$,
-      postTylenol$,
-      postAntibiotics$,
-      postDiaper$
+      postMedication$
     )
   };
 
