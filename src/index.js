@@ -127,12 +127,9 @@ function main(sources) {
     });
 
   const postMedication$ = Rx.Observable.merge(
-      sources.DOM.select('.ibuprofen').events('click').map(() => 'ibuprofen'),
-      sources.DOM.select('.tylenol').events('click').map(() => 'tylenol'),
       sources.DOM.select('.iron').events('click').map(() => 'iron'),
       sources.DOM.select('.prenatal').events('click').map(() => 'prenatal'),
-      sources.DOM.select('.vitamind').events('click').map(() => 'vitamind'),
-      sources.DOM.select('.colace').events('click').map(() => 'colace')
+      sources.DOM.select('.vitamind').events('click').map(() => 'vitamind')
     )
     .withLatestFrom(
       timeshift$,
@@ -185,14 +182,6 @@ function main(sources) {
                 ])
               ]),
               tr([
-                th('Tylenol'),
-                td(lastMedication(eventsByType.medication, 'tylenol'))
-              ]),
-              tr([
-                th('Ibuprofen'),
-                td(lastMedication(eventsByType.medication, 'ibuprofen'))
-              ]),
-              tr([
                 th('Iron'),
                 td(lastMedication(eventsByType.medication, 'iron'))
               ]),
@@ -203,10 +192,6 @@ function main(sources) {
               tr([
                 th('Vitamin D'),
                 td(lastMedication(eventsByType.medication, 'vitamind'))
-              ]),
-              tr([
-                th('Colace'),
-                td(lastMedication(eventsByType.medication, 'colace'))
               ]),
             ]),
           ] : div('Loading...'),
@@ -219,12 +204,6 @@ function main(sources) {
               button('.feed .pure-button .pure-button-primary', 'Feed'),
             ]),
             div([
-              button('.tylenol .pure-button .pure-button-primary', 'Tylenol'),
-            ]),
-            div([
-              button('.ibuprofen .pure-button .pure-button-primary', 'Ibuprofen'),
-            ]),
-            div([
               button('.iron .pure-button .pure-button-primary', 'Iron'),
             ]),
             div([
@@ -232,9 +211,6 @@ function main(sources) {
             ]),
             div([
               button('.vitamind .pure-button .pure-button-primary', 'Vitamin D'),
-            ]),
-            div([
-              button('.colace .pure-button .pure-button-primary', 'Colace'),
             ]),
             // div([
             //   label([

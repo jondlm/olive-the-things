@@ -6,8 +6,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack",
-    "deploy": "webpack && firebase deploy --only hosting"
+    "build": "webpack --optimize-minimize",
+    "deploy": "npm run build && firebase deploy --only hosting"
   },
   "keywords": [],
   "author": "Jon de la Motte <jondlm@gmail.com>",
