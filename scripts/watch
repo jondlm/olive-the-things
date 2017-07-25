@@ -1,0 +1,5 @@
+#!/bin/bash
+
+fswatch src/ -l 0.1 \
+  | grep -E --line-buffered '\.(elm)$' \
+  | xargs -n1 -I{} bash -c 'clear; scripts/build'
