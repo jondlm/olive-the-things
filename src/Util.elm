@@ -20,6 +20,12 @@ humanize startDate endDate =
         totalMinutes =
             diff Date.Extra.Minute startDate endDate
 
+        totalHours =
+            diff Date.Extra.Hour startDate endDate
+
+        totalDays =
+            diff Date.Extra.Day startDate endDate
+
         minutes =
             totalMinutes % 60
 
@@ -40,21 +46,6 @@ humanize startDate endDate =
             else
                 ""
 
-        days =
-            floor ((toFloat totalMinutes) / 60 / 24)
-
-        daysS =
-            if days > 1 then
-                "s"
-            else
-                ""
-
-        daysMessage =
-            if days > 0 then
-                (toString days) ++ " day" ++ daysS
-            else
-                ""
-
         hoursMinutes =
             Date.Extra.toFormattedString "HH:mm" startDate
 
@@ -67,7 +58,4 @@ humanize startDate endDate =
         suffix =
             ago ++ "at " ++ hoursMinutes
     in
-        if days > 0 then
-            daysMessage ++ suffix
-        else
-            hoursMessage ++ " " ++ minutesMessage ++ suffix
+        hoursMessage ++ " " ++ minutesMessage ++ suffix
