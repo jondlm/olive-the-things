@@ -1,5 +1,6 @@
 {
   "projects": {
-    "prod": "firebase-olive-the-things"
+    "prod": "firebase-olive-the-things",
+    "default": "firebase-olive-the-things"
   }
 }
