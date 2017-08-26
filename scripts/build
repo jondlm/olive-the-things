@@ -1,4 +1,4 @@
 #!/bin/bash
 
 elm-make src/Main.elm --output public/main.js
-`npm bin`/google-closure-compiler-js public/main.js > public/main.min.js
+#`npm bin`/google-closure-compiler-js public/main.js > public/main.min.js

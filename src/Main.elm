@@ -28,16 +28,12 @@ main =
 
 
 type alias Model =
-    { events : List Event
-    , message : String
+    { message : String
     , currentDate : Maybe Date
     , shiftMins : Int
+    , feedings : List FeedingContent
+    , medications : List MedicationContent
     }
-
-
-type Event
-    = Feeding FeedingContent
-    | Medication MedicationContent
 
 
 type alias FeedingContent =
@@ -54,10 +50,11 @@ type alias MedicationContent =
 
 emptyModel : Model
 emptyModel =
-    { events = []
-    , message = ""
+    { message = ""
     , currentDate = Nothing
     , shiftMins = 0
+    , feedings = []
+    , medications = []
     }
 
 
@@ -71,14 +68,16 @@ init =
 
 
 type Msg
-    = NewEvents (Result Http.Error (List Event))
-    | FetchEvents
+    = FetchEvents
     | NoOp
     | Tick Time
     | ShiftMinsInput String
     | Medicate String
     | Feed
-    | FeedOrMedicateResult (Result Http.Error Decode.Value)
+    | FeedResult (Result Http.Error Decode.Value)
+    | MedicateResult (Result Http.Error Decode.Value)
+    | NewFeedings (Result Http.Error (List FeedingContent))
+    | NewMedications (Result Http.Error (List MedicationContent))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -116,7 +115,7 @@ update msg model =
                 { model | shiftMins = shiftMins } ! []
 
         FetchEvents ->
-            model ! [ getEvents ]
+            model ! refresh
 
         Tick time ->
             let
@@ -124,86 +123,67 @@ update msg model =
                     Date.fromTime time
             in
                 if (Date.second currentDate) == 0 || model.currentDate == Nothing then
-                    { model | currentDate = Just currentDate } ! [ getEvents ]
+                    { model | currentDate = Just currentDate } ! refresh
                 else
                     { model | currentDate = Just currentDate } ! []
 
-        NewEvents (Ok events) ->
-            { model
-                | message = ""
-                , events = List.sortWith eventSort events
-            }
-                ! []
+        FeedResult (Ok _) ->
+            model ! refresh
 
-        NewEvents (Err _) ->
-            { model | message = "error loading events!" } ! []
+        FeedResult (Err _) ->
+            model ! []
 
-        FeedOrMedicateResult (Ok _) ->
-            model ! [ getEvents ]
+        MedicateResult (Ok _) ->
+            model ! refresh
 
-        FeedOrMedicateResult (Err _) ->
-            { model | message = "error posting!" } ! []
+        MedicateResult (Err _) ->
+            model ! []
 
+        NewFeedings (Ok feedings) ->
+            { model | feedings = feedings } ! []
 
-eventSort : Event -> Event -> Order
-eventSort e1 e2 =
-    let
-        extractTime event =
-            case event of
-                Medication m ->
-                    m.time
+        NewFeedings (Err _) ->
+            { model | message = "error fetching feedings" } ! []
 
-                Feeding f ->
-                    f.time
+        NewMedications (Ok medications) ->
+            { model | medications = medications } ! []
 
-        t1 =
-            extractTime (e1)
-
-        t2 =
-            extractTime (e2)
-    in
-        case compare t1 t2 of
-            LT ->
-                GT
-
-            EQ ->
-                EQ
-
-            GT ->
-                LT
+        NewMedications (Err _) ->
+            model ! []
 
 
-eventListDecoder : Decode.Decoder (List Event)
-eventListDecoder =
-    Decode.map (List.map Tuple.second) (Decode.keyValuePairs eventDecoder)
+refresh =
+    [ getFeedings, getMedication "vitamind", getMedication "iron", getMedication "prenatal", getMedication "probiotic" ]
 
 
-eventDecoder : Decode.Decoder Event
-eventDecoder =
-    Decode.oneOf [ medicationDecoder, feedingDecoder ]
+feedingListDecoder : Decode.Decoder (List FeedingContent)
+feedingListDecoder =
+    Decode.map (List.map Tuple.second) (Decode.keyValuePairs feedingDecoder)
 
 
-medicationDecoder : Decode.Decoder Event
-medicationDecoder =
-    Decode.map Medication
-        (Decode.map2 MedicationContent
-            (Decode.field "time" Decode.string)
-            (Decode.field "name" Decode.string)
-        )
+medicationListDecoder : String -> Decode.Decoder (List MedicationContent)
+medicationListDecoder name =
+    Decode.map (List.map Tuple.second) (Decode.keyValuePairs (medicationDecoder name))
 
 
-feedingDecoder : Decode.Decoder Event
+medicationDecoder : String -> Decode.Decoder MedicationContent
+medicationDecoder name =
+    Decode.map2 MedicationContent
+        (Decode.field "time" Decode.string)
+        (Decode.succeed name)
+
+
+feedingDecoder : Decode.Decoder FeedingContent
 feedingDecoder =
-    Decode.map Feeding
-        (Decode.map2 FeedingContent
-            (Decode.field "time" Decode.string)
-            (Decode.field "who" Decode.string)
-        )
+    (Decode.map2 FeedingContent
+        (Decode.field "time" Decode.string)
+        (Decode.field "who" Decode.string)
+    )
 
 
-findLatestMedicationDate : String -> List Event -> Maybe Date
-findLatestMedicationDate name events =
-    case findLatestMedicationInner name events Nothing of
+findLatestMedicationDate : String -> List MedicationContent -> Maybe Date
+findLatestMedicationDate name medications =
+    case findLatestMedicationInner name medications Nothing of
         Just m ->
             Date.Extra.fromIsoString m.time
 
@@ -213,33 +193,30 @@ findLatestMedicationDate name events =
 
 {-| expects a sorted list of events
 -}
-findLatestMedication : String -> List Event -> Maybe MedicationContent
-findLatestMedication name events =
-    findLatestMedicationInner name events Nothing
+findLatestMedication : String -> List MedicationContent -> Maybe MedicationContent
+findLatestMedication name medications =
+    findLatestMedicationInner name medications Nothing
 
 
-findLatestMedicationInner : String -> List Event -> Maybe MedicationContent -> Maybe MedicationContent
-findLatestMedicationInner name events maybeMedication =
-    case ( events, maybeMedication ) of
+findLatestMedicationInner : String -> List MedicationContent -> Maybe MedicationContent -> Maybe MedicationContent
+findLatestMedicationInner name medications maybeMedication =
+    case ( medications, maybeMedication ) of
         ( _, Just m ) ->
             maybeMedication
 
         ( [], m ) ->
             m
 
-        ( (Feeding h) :: t, Nothing ) ->
-            findLatestMedicationInner name t Nothing
-
-        ( (Medication h) :: t, Nothing ) ->
+        ( h :: t, Nothing ) ->
             if h.name == name then
                 Just h
             else
                 findLatestMedicationInner name t Nothing
 
 
-findLatestFeedingDate : List Event -> Maybe Date
-findLatestFeedingDate events =
-    case findLastestFeeding events of
+findLatestFeedingDate : List FeedingContent -> Maybe Date
+findLatestFeedingDate feedings =
+    case findLastestFeeding feedings of
         Just f ->
             Date.Extra.fromIsoString f.time
 
@@ -247,51 +224,60 @@ findLatestFeedingDate events =
             Nothing
 
 
-findLastestFeeding : List Event -> Maybe FeedingContent
-findLastestFeeding events =
-    findLastestFeedingInner events Nothing
+findLastestFeeding : List FeedingContent -> Maybe FeedingContent
+findLastestFeeding feedings =
+    findLastestFeedingInner feedings Nothing
 
 
-findLastestFeedingInner : List Event -> Maybe FeedingContent -> Maybe FeedingContent
-findLastestFeedingInner events maybeFeeding =
-    case ( events, maybeFeeding ) of
+findLastestFeedingInner : List FeedingContent -> Maybe FeedingContent -> Maybe FeedingContent
+findLastestFeedingInner feedings maybeFeeding =
+    case ( feedings, maybeFeeding ) of
         ( _, Just f ) ->
             maybeFeeding
 
         ( [], f ) ->
             f
 
-        ( (Feeding h) :: t, Nothing ) ->
+        ( h :: t, Nothing ) ->
             Just h
-
-        ( (Medication _) :: t, Nothing ) ->
-            findLastestFeedingInner t Nothing
 
 
 
 -- HTTP
 
 
-getEvents : Cmd Msg
-getEvents =
-    Http.send NewEvents <|
+getFeedings : Cmd Msg
+getFeedings =
+    Http.send NewFeedings <|
         Http.get
-            ("https://olive-the-things.firebaseio.com/events.json?"
+            ("https://olive-the-things.firebaseio.com/feedings.json?"
                 ++ "orderBy=\"time\""
-                ++ "&startAt=\"2017-07-13T00:00:00.000Z\""
+                ++ "&limitToLast=5"
             )
-            eventListDecoder
+            feedingListDecoder
+
+
+getMedication : String -> Cmd Msg
+getMedication name =
+    Http.send NewMedications <|
+        Http.get
+            ("https://olive-the-things.firebaseio.com/"
+                ++ name
+                ++ ".json?"
+                ++ "orderBy=\"time\""
+                ++ "&limitToLast=1"
+            )
+            (medicationListDecoder name)
 
 
 postFeed : Date -> Cmd Msg
 postFeed date =
-    Http.send FeedOrMedicateResult <|
+    Http.send FeedResult <|
         Http.post
-            "https://olive-the-things.firebaseio.com/events.json"
+            "https://olive-the-things.firebaseio.com/feedings.json"
             (Http.jsonBody
                 (Encode.object
-                    [ ( "type", Encode.string "feeding" )
-                    , ( "time", Encode.string (Date.Extra.toUtcIsoString date) )
+                    [ ( "time", Encode.string (Date.Extra.toUtcIsoString date) )
                     , ( "who", Encode.string "everett" )
                     ]
                 )
@@ -301,15 +287,12 @@ postFeed date =
 
 postMedication : Date -> String -> Cmd Msg
 postMedication date name =
-    Http.send FeedOrMedicateResult <|
+    Http.send MedicateResult <|
         Http.post
-            "https://olive-the-things.firebaseio.com/events.json"
+            ("https://olive-the-things.firebaseio.com/" ++ name ++ ".json")
             (Http.jsonBody
                 (Encode.object
-                    [ ( "type", Encode.string "medication" )
-                    , ( "time", Encode.string (Date.Extra.toUtcIsoString date) )
-                    , ( "name", Encode.string name )
-                    ]
+                    [ ( "time", Encode.string (Date.Extra.toUtcIsoString date) ) ]
                 )
             )
             Decode.value
@@ -323,16 +306,19 @@ view : Model -> Html Msg
 view model =
     let
         feedingDate =
-            findLatestFeedingDate model.events
-
-        ironDate =
-            findLatestMedicationDate "iron" model.events
-
-        prenatalDate =
-            findLatestMedicationDate "prenatal" model.events
+            findLatestFeedingDate model.feedings
 
         vitaminDDate =
-            findLatestMedicationDate "vitamind" model.events
+            findLatestMedicationDate "vitamind" model.medications
+
+        ironDate =
+            findLatestMedicationDate "iron" model.medications
+
+        probioticDate =
+            findLatestMedicationDate "probiotic" model.medications
+
+        prenatalDate =
+            findLatestMedicationDate "prenatal" model.medications
 
         currentDateHourMinute =
             case model.currentDate of
@@ -365,6 +351,10 @@ view model =
                     [ th [] [ text "Vitamin D" ]
                     , td [] [ text (maybeHumanize vitaminDDate model.currentDate) ]
                     ]
+                , tr []
+                    [ th [] [ text "Probiotic" ]
+                    , td [] [ text (maybeHumanize probioticDate model.currentDate) ]
+                    ]
                 ]
             , div [ class "center" ]
                 [ span [] [ text "shift mins: " ]
@@ -382,37 +372,9 @@ view model =
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "iron") ] [ text "Iron" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "prenatal") ] [ text "Prenatal" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "vitamind") ] [ text "Vitamin D" ] ]
-                ]
-            , table [ class "pure-table" ]
-                [ Html.thead []
-                    [ tr []
-                        [ th [] [ text "Type" ]
-                        , th [] [ text "Date" ]
-                        , th [] [ text "Medication Name" ]
-                        ]
-                    ]
-                , Html.tbody []
-                    (List.map (viewEvent model) model.events)
+                , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "probiotic") ] [ text "Probiotic" ] ]
                 ]
             ]
-
-
-viewEvent : Model -> Event -> Html Msg
-viewEvent model event =
-    case event of
-        Medication m ->
-            tr []
-                [ td [] [ text "Medication" ]
-                , td [] [ text (maybeHumanize (Date.Extra.fromIsoString m.time) model.currentDate) ]
-                , td [] [ text m.name ]
-                ]
-
-        Feeding f ->
-            tr []
-                [ td [] [ text "Feeding" ]
-                , td [] [ text (maybeHumanize (Date.Extra.fromIsoString f.time) model.currentDate) ]
-                , td [] []
-                ]
 
 
 

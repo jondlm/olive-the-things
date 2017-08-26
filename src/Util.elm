@@ -11,7 +11,7 @@ maybeHumanize mStartDate mEndDate =
             humanize startDate endDate
 
         ( _, _ ) ->
-            "Invalid date(s)"
+            "..."
 
 
 humanize : Date -> Date -> String
