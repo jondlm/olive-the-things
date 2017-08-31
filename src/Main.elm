@@ -77,7 +77,7 @@ type Msg
     | FeedResult (Result Http.Error Decode.Value)
     | MedicateResult (Result Http.Error Decode.Value)
     | NewFeedings (Result Http.Error (List FeedingContent))
-    | NewMedications (Result Http.Error (List MedicationContent))
+    | NewMedications String (Result Http.Error (List MedicationContent))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -140,18 +140,33 @@ update msg model =
             model ! []
 
         NewFeedings (Ok feedings) ->
-            { model | feedings = feedings } ! []
+            { model
+                | feedings = feedings
+                , message = ""
+            }
+                ! []
 
         NewFeedings (Err _) ->
             { model | message = "error fetching feedings" } ! []
 
-        NewMedications (Ok medications) ->
-            { model | medications = medications } ! []
+        NewMedications name (Ok medications) ->
+            { model | medications = (filterMedications name model.medications) ++ medications } ! []
 
-        NewMedications (Err _) ->
+        NewMedications _ (Err _) ->
             model ! []
 
 
+filterMedications : String -> List MedicationContent -> List MedicationContent
+filterMedications name medications =
+    (List.filter
+        (\medication ->
+            medication.name /= name
+        )
+        medications
+    )
+
+
+refresh : List (Cmd Msg)
 refresh =
     [ getFeedings, getMedication "vitamind", getMedication "iron", getMedication "prenatal", getMedication "probiotic" ]
 
@@ -259,7 +274,7 @@ getFeedings =
 
 getMedication : String -> Cmd Msg
 getMedication name =
-    Http.send NewMedications <|
+    Http.send (NewMedications name) <|
         Http.get
             ("https://olive-the-things.firebaseio.com/"
                 ++ name
