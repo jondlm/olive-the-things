@@ -14,6 +14,16 @@ maybeHumanize mStartDate mEndDate =
             "..."
 
 
+showEndDate : Maybe Date -> Maybe Date -> String
+showEndDate mStartDate mEndDate =
+    case ( mStartDate, mEndDate ) of
+        ( Just startDate, Just endDate ) ->
+            "for " ++ toString (diff Date.Extra.Minute endDate startDate) ++ " mins"
+
+        ( _, _ ) ->
+            ""
+
+
 humanize : Date -> Date -> String
 humanize startDate endDate =
     let

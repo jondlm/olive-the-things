@@ -1,15 +1,15 @@
 module Main exposing (..)
 
-import Html exposing (Html, program, div, text, ul, li, table, thead, tr, td, th, h3, span, button, input)
+import Html exposing (Html, program, div, text, ul, li, table, thead, tbody, tr, td, th, h3, span, button, input)
 import Html.Attributes exposing (class, id, type_, pattern, attribute)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Http
+import Http exposing (Error(..))
 import Date exposing (Date)
 import Date.Extra exposing (Interval(..))
 import Task
-import Util exposing (humanize, maybeHumanize)
+import Util exposing (humanize, maybeHumanize, showEndDate)
 import Time exposing (Time, second)
 
 
@@ -37,8 +37,10 @@ type alias Model =
 
 
 type alias FeedingContent =
-    { time : String
+    { id : String
+    , time : String
     , who : String
+    , endTime : Maybe String
     }
 
 
@@ -74,6 +76,7 @@ type Msg
     | ShiftMinsInput String
     | Medicate String
     | Feed
+    | StopFeed
     | FeedResult (Result Http.Error Decode.Value)
     | MedicateResult (Result Http.Error Decode.Value)
     | NewFeedings (Result Http.Error (List FeedingContent))
@@ -93,6 +96,19 @@ update msg model =
 
                 Nothing ->
                     { model | message = "currentDate invalid, can't post feeding" } ! []
+
+        -- TODO: implement this
+        StopFeed ->
+            let
+                maybeLatestFeeding =
+                    findLatestFeeding model.feedings
+            in
+                case ( model.currentDate, maybeLatestFeeding ) of
+                    ( Just date, Just latestFeeding ) ->
+                        model ! [ (postFeedEnd latestFeeding.id (Date.Extra.add Minute (model.shiftMins * -1) date)) ]
+
+                    ( _, _ ) ->
+                        { model | message = "Invalid currentDate or latestFeeding" } ! []
 
         Medicate name ->
             case model.currentDate of
@@ -146,8 +162,22 @@ update msg model =
             }
                 ! []
 
-        NewFeedings (Err _) ->
-            { model | message = "error fetching feedings" } ! []
+        NewFeedings (Err err) ->
+            case err of
+                BadUrl msg ->
+                    { model | message = msg } ! []
+
+                Timeout ->
+                    { model | message = "timeout" } ! []
+
+                NetworkError ->
+                    { model | message = "network error" } ! []
+
+                BadStatus _ ->
+                    { model | message = "bad status" } ! []
+
+                BadPayload msg _ ->
+                    { model | message = msg } ! []
 
         NewMedications name (Ok medications) ->
             { model | medications = (filterMedications name model.medications) ++ medications } ! []
@@ -171,9 +201,21 @@ refresh =
     [ getFeedings, getMedication "vitamind", getMedication "iron", getMedication "prenatal", getMedication "probiotic" ]
 
 
+combine : ( String, FeedingContent ) -> FeedingContent
+combine t =
+    let
+        id =
+            Tuple.first (t)
+
+        obj =
+            Tuple.second (t)
+    in
+        { obj | id = id }
+
+
 feedingListDecoder : Decode.Decoder (List FeedingContent)
 feedingListDecoder =
-    Decode.map (List.map Tuple.second) (Decode.keyValuePairs feedingDecoder)
+    Decode.map (List.map combine) (Decode.keyValuePairs feedingDecoder)
 
 
 medicationListDecoder : String -> Decode.Decoder (List MedicationContent)
@@ -190,9 +232,10 @@ medicationDecoder name =
 
 feedingDecoder : Decode.Decoder FeedingContent
 feedingDecoder =
-    (Decode.map2 FeedingContent
+    (Decode.map3 (\time who endTime -> FeedingContent "" time who endTime)
         (Decode.field "time" Decode.string)
         (Decode.field "who" Decode.string)
+        (Decode.maybe (Decode.field "endTime" Decode.string))
     )
 
 
@@ -229,9 +272,9 @@ findLatestMedicationInner name medications maybeMedication =
                 findLatestMedicationInner name t Nothing
 
 
-findLatestFeedingDate : List FeedingContent -> Maybe Date
-findLatestFeedingDate feedings =
-    case findLastestFeeding feedings of
+findLatestFeedingTime : List FeedingContent -> Maybe Date
+findLatestFeedingTime feedings =
+    case findLatestFeeding feedings of
         Just f ->
             Date.Extra.fromIsoString f.time
 
@@ -239,8 +282,23 @@ findLatestFeedingDate feedings =
             Nothing
 
 
-findLastestFeeding : List FeedingContent -> Maybe FeedingContent
-findLastestFeeding feedings =
+findLatestFeedingTimeEnd : List FeedingContent -> Maybe Date
+findLatestFeedingTimeEnd feedings =
+    case findLatestFeeding feedings of
+        Just f ->
+            case f.endTime of
+                Just t ->
+                    Date.Extra.fromIsoString t
+
+                Nothing ->
+                    Nothing
+
+        Nothing ->
+            Nothing
+
+
+findLatestFeeding : List FeedingContent -> Maybe FeedingContent
+findLatestFeeding feedings =
     findLastestFeedingInner feedings Nothing
 
 
@@ -300,6 +358,17 @@ postFeed date =
             Decode.value
 
 
+postFeedEnd : String -> Date -> Cmd Msg
+postFeedEnd id date =
+    Http.send FeedResult <|
+        Http.post
+            ("https://olive-the-things.firebaseio.com/feedings/" ++ id ++ ".json?x-http-method-override=PATCH")
+            (Http.jsonBody
+                (Encode.object [ ( "endTime", Encode.string (Date.Extra.toUtcIsoString date) ) ])
+            )
+            Decode.value
+
+
 postMedication : Date -> String -> Cmd Msg
 postMedication date name =
     Http.send MedicateResult <|
@@ -320,8 +389,11 @@ postMedication date name =
 view : Model -> Html Msg
 view model =
     let
-        feedingDate =
-            findLatestFeedingDate model.feedings
+        latestFeedingTime =
+            findLatestFeedingTime model.feedings
+
+        latestFeedingTimeEnd =
+            findLatestFeedingTimeEnd model.feedings
 
         vitaminDDate =
             findLatestMedicationDate "vitamind" model.medications
@@ -352,7 +424,13 @@ view model =
             , table [ class "highlights pure-table pure-table-horizontal" ]
                 [ tr []
                     [ th [] [ text "Feeding" ]
-                    , td [] [ text (maybeHumanize feedingDate model.currentDate) ]
+                    , td []
+                        [ text
+                            ((maybeHumanize latestFeedingTime model.currentDate)
+                                ++ " "
+                                ++ (showEndDate latestFeedingTimeEnd latestFeedingTime)
+                            )
+                        ]
                     ]
                 , tr []
                     [ th [] [ text "Iron" ]
@@ -383,12 +461,24 @@ view model =
                     []
                 ]
             , div [ class "buttons right" ]
-                [ div [] [ button [ class "pure-button pure-button-primary", onClick Feed ] [ text "Feed" ] ]
+                [ div [ class "pure-button-group" ]
+                    [ button [ class "pure-button pure-button-primary", onClick Feed ] [ text "Feed" ]
+                    , button [ class "pure-button button-error", attribute "role" "group", onClick StopFeed ] [ text "Stop" ]
+                    ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "iron") ] [ text "Iron" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "prenatal") ] [ text "Prenatal" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "vitamind") ] [ text "Vitamin D" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "probiotic") ] [ text "Probiotic" ] ]
                 ]
+              -- , table [ class "pure-table" ]
+              --     [ thead []
+              --         [ tr []
+              --             [ th [] [ text "Date" ]
+              --             , th [] [ text "Duration" ]
+              --             ]
+              --         ]
+              --     , tbody [] (List.map (viewFeeding model) model.feedings)
+              --     ]
             ]
 
 
