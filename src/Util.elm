@@ -24,6 +24,31 @@ showEndDate mStartDate mEndDate =
             ""
 
 
+showDate : String -> String
+showDate dateIso =
+    case Date.Extra.fromIsoString dateIso of
+        Just date ->
+            Date.Extra.toFormattedString "yyyy-MM-dd HH:mm" date
+
+        Nothing ->
+            "invalid date"
+
+
+showDuration : String -> Maybe String -> String
+showDuration startTimeIso mEndTimeIso =
+    case ( Date.Extra.fromIsoString startTimeIso, mEndTimeIso ) of
+        ( Just startTime, Just mEndTimeIso ) ->
+            case Date.Extra.fromIsoString mEndTimeIso of
+                Just endTime ->
+                    toString (diff Date.Extra.Minute startTime endTime) ++ " mins"
+
+                _ ->
+                    ""
+
+        ( _, _ ) ->
+            ""
+
+
 humanize : Date -> Date -> String
 humanize startDate endDate =
     let

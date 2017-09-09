@@ -9,7 +9,7 @@ import Http exposing (Error(..))
 import Date exposing (Date)
 import Date.Extra exposing (Interval(..))
 import Task
-import Util exposing (humanize, maybeHumanize, showEndDate)
+import Util exposing (humanize, maybeHumanize, showEndDate, showDuration, showDate)
 import Time exposing (Time, second)
 
 
@@ -33,6 +33,7 @@ type alias Model =
     , shiftMins : Int
     , feedings : List FeedingContent
     , medications : List MedicationContent
+    , ounces : Float
     }
 
 
@@ -41,6 +42,7 @@ type alias FeedingContent =
     , time : String
     , who : String
     , endTime : Maybe String
+    , ounces : Float
     }
 
 
@@ -57,6 +59,7 @@ emptyModel =
     , shiftMins = 0
     , feedings = []
     , medications = []
+    , ounces = 0
     }
 
 
@@ -74,9 +77,11 @@ type Msg
     | NoOp
     | Tick Time
     | ShiftMinsInput String
+    | OuncesInput String
     | Medicate String
     | Feed
     | StopFeed
+    | ApplyOunces
     | FeedResult (Result Http.Error Decode.Value)
     | MedicateResult (Result Http.Error Decode.Value)
     | NewFeedings (Result Http.Error (List FeedingContent))
@@ -88,6 +93,18 @@ update msg model =
     case msg of
         NoOp ->
             model ! []
+
+        ApplyOunces ->
+            let
+                maybeLatestFeeding =
+                    findLatestFeeding model.feedings
+            in
+                case maybeLatestFeeding of
+                    Just feeding ->
+                        model ! [ postOunces feeding.id model.ounces ]
+
+                    Nothing ->
+                        model ! []
 
         Feed ->
             case model.currentDate of
@@ -129,6 +146,18 @@ update msg model =
                             0
             in
                 { model | shiftMins = shiftMins } ! []
+
+        OuncesInput mins ->
+            let
+                o =
+                    case String.toFloat mins of
+                        Ok i ->
+                            i
+
+                        Err _ ->
+                            0
+            in
+                { model | ounces = o } ! []
 
         FetchEvents ->
             model ! refresh
@@ -232,10 +261,24 @@ medicationDecoder name =
 
 feedingDecoder : Decode.Decoder FeedingContent
 feedingDecoder =
-    (Decode.map3 (\time who endTime -> FeedingContent "" time who endTime)
+    (Decode.map4
+        (\time who endTime ounces ->
+            FeedingContent ""
+                time
+                who
+                endTime
+                (case ounces of
+                    Just f ->
+                        f
+
+                    Nothing ->
+                        0
+                )
+        )
         (Decode.field "time" Decode.string)
         (Decode.field "who" Decode.string)
         (Decode.maybe (Decode.field "endTime" Decode.string))
+        (Decode.maybe (Decode.field "ounces" Decode.float))
     )
 
 
@@ -325,7 +368,7 @@ getFeedings =
         Http.get
             ("https://olive-the-things.firebaseio.com/feedings.json?"
                 ++ "orderBy=\"time\""
-                ++ "&limitToLast=5"
+                ++ "&limitToLast=20"
             )
             feedingListDecoder
 
@@ -369,6 +412,17 @@ postFeedEnd id date =
             Decode.value
 
 
+postOunces : String -> Float -> Cmd Msg
+postOunces id ounces =
+    Http.send FeedResult <|
+        Http.post
+            ("https://olive-the-things.firebaseio.com/feedings/" ++ id ++ ".json?x-http-method-override=PATCH")
+            (Http.jsonBody
+                (Encode.object [ ( "ounces", Encode.float ounces ) ])
+            )
+            Decode.value
+
+
 postMedication : Date -> String -> Cmd Msg
 postMedication date name =
     Http.send MedicateResult <|
@@ -389,11 +443,16 @@ postMedication date name =
 view : Model -> Html Msg
 view model =
     let
+        latestFeeding =
+            case findLatestFeeding model.feedings of
+                Just feeding ->
+                    feeding
+
+                Nothing ->
+                    FeedingContent "" "" "" Nothing 0
+
         latestFeedingTime =
             findLatestFeedingTime model.feedings
-
-        latestFeedingTimeEnd =
-            findLatestFeedingTimeEnd model.feedings
 
         vitaminDDate =
             findLatestMedicationDate "vitamind" model.medications
@@ -428,7 +487,7 @@ view model =
                         [ text
                             ((maybeHumanize latestFeedingTime model.currentDate)
                                 ++ " "
-                                ++ (showEndDate latestFeedingTimeEnd latestFeedingTime)
+                                ++ (showDuration latestFeeding.time latestFeeding.endTime)
                             )
                         ]
                     ]
@@ -460,26 +519,48 @@ view model =
                     ]
                     []
                 ]
+            , div [ class "center" ]
+                [ span [] [ text "ounces: " ]
+                , input
+                    [ type_ "number"
+                    , attribute "inputmode" "numeric"
+                    , pattern "[0-9]*"
+                    , class "timeshift"
+                    , onInput OuncesInput
+                    ]
+                    []
+                ]
             , div [ class "buttons right" ]
                 [ div [ class "pure-button-group" ]
                     [ button [ class "pure-button pure-button-primary", onClick Feed ] [ text "Feed" ]
                     , button [ class "pure-button button-error", attribute "role" "group", onClick StopFeed ] [ text "Stop" ]
+                    , button [ class "pure-button button-warning", attribute "role" "group", onClick ApplyOunces ] [ text "Ounces" ]
                     ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "iron") ] [ text "Iron" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "prenatal") ] [ text "Prenatal" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "vitamind") ] [ text "Vitamin D" ] ]
                 , div [] [ button [ class "pure-button pure-button-primary", onClick (Medicate "probiotic") ] [ text "Probiotic" ] ]
                 ]
-              -- , table [ class "pure-table" ]
-              --     [ thead []
-              --         [ tr []
-              --             [ th [] [ text "Date" ]
-              --             , th [] [ text "Duration" ]
-              --             ]
-              --         ]
-              --     , tbody [] (List.map (viewFeeding model) model.feedings)
-              --     ]
+            , table [ class "pure-table" ]
+                [ thead []
+                    [ tr []
+                        [ th [] [ text "Date" ]
+                        , th [] [ text "Duration" ]
+                        , th [] [ text "Ounces" ]
+                        ]
+                    ]
+                , tbody [] (List.map (viewFeeding model) model.feedings)
+                ]
             ]
+
+
+viewFeeding : Model -> FeedingContent -> Html Msg
+viewFeeding model feeding =
+    tr []
+        [ td [] [ text (showDate feeding.time) ]
+        , td [] [ text (showDuration feeding.time feeding.endTime) ]
+        , td [] [ text (toString feeding.ounces) ]
+        ]
 
 
 
