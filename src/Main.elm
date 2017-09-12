@@ -524,7 +524,6 @@ view model =
                 , input
                     [ type_ "number"
                     , attribute "inputmode" "numeric"
-                    , pattern "[0-9]*"
                     , class "timeshift"
                     , onInput OuncesInput
                     ]

@@ -3,3 +3,4 @@ public/main.js
 public/main.min.js
 elm-stuff
 repl-temp-*
+*.log
